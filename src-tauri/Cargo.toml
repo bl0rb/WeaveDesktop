@@ -2,7 +2,7 @@
 name = "weave-desktop"
 version = "0.1.7"
 edition = "2021"
-license-file = "../../../LICENSE"
+license-file = "../LICENSE"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

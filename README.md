@@ -25,6 +25,9 @@ gestreamt mit Quellen; Quellen mit Link (z. B. Confluence) öffnen sich im Brows
 - **Scrollen** – eine neue Frage rückt nach oben, die Antwort läuft darunter ein, ohne die
   Ansicht bis an ihr Ende mitzuziehen (wie im Web-Chat).
 
+Der Server (weave-api, Web-Chat) liegt in [bl0rb/Weave](https://github.com/bl0rb/Weave); bis
+Version 0.1.7 lag auch diese App dort (`clients/desktop`).
+
 Gebaut mit Tauri 2 wie [KeyZapper](https://github.com/bl0rb/ClaudeKeyZapper);
 die Einstellungen sehen auch so aus. Keine Build-Kette für die Oberfläche
 (`ui/` ist reines HTML/JS).
@@ -103,6 +106,26 @@ Vorabversionen) schreibt ihn neu. Pakete sind mit dem Schlüssel signiert, desse
 wird nicht installiert. macOS ersetzt die App, Windows installiert das MSI (passiv).
 Danach startet Weave neu.
 
+### Umzug des Feeds aus bl0rb/Weave
+
+Installierte Apps bis 0.1.7 fragen noch den alten Feed ab
+(`https://github.com/bl0rb/Weave/releases/download/desktop-latest/latest.json`); ab 0.1.8
+steht in `tauri.conf.json` der Feed dieses Repositorys. Damit die alten Installationen das
+erste Release von hier finden, nach diesem Release `latest.json` einmal in den alten Feed
+kopieren:
+
+```bash
+gh release download desktop-latest -R bl0rb/WeaveDesktop -p latest.json
+```
+
+```bash
+gh release upload desktop-latest latest.json --clobber -R bl0rb/Weave
+```
+
+Nach diesem Update holen sich alle Apps ihre Updates von hier. Voraussetzung ist, dass
+`TAURI_SIGNING_PRIVATE_KEY` hier denselben Schlüssel enthält wie bisher in bl0rb/Weave –
+mit einem neuen Schlüssel lehnen die installierten Apps das Update ab.
+
 ## Entwickeln
 
 ```bash
@@ -119,20 +142,20 @@ Proc-Macro-Bibliotheken ab (das System-`strip` beschädigt sie). Lokal hilft
 
 ## Builds und Releases
 
-`.github/workflows/desktop.yml` testet und baut bei jedem Pull Request, der
-`clients/desktop/` berührt, beide Installer: `Weave-<version>.dmg` (macOS,
-universal) und `Weave-<version>.msi` (Windows). Sie liegen als Artefakte am Lauf.
+`.github/workflows/desktop.yml` testet und baut bei jedem Pull Request beide
+Installer: `Weave-<version>.dmg` (macOS, universal) und `Weave-<version>.msi`
+(Windows). Sie liegen als Artefakte am Lauf.
 
 Ein Tag `desktop-vX.Y.Z` veröffentlicht beide als GitHub-Release
-(`desktop-vX.Y.Z-rc.1` als Vorabversion). Das Präfix hält diese Tags aus
-`release.yml` heraus, das bei `v*` den Server-Stack veröffentlicht.
+(`desktop-vX.Y.Z-rc.1` als Vorabversion). Das Präfix führt die Tags aus
+bl0rb/Weave fort (`desktop-v0.1.0` bis `desktop-v0.1.7`).
 
 ```bash
-git tag desktop-v0.1.0
+git tag desktop-v0.1.8
 ```
 
 ```bash
-git push origin desktop-v0.1.0
+git push origin desktop-v0.1.8
 ```
 
 Signieren ist optional und schaltet sich mit den Repository-Secrets ein. Ohne

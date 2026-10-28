@@ -46,7 +46,7 @@
     "active": true,
     "targets": "all",
     "category": "Productivity",
-    "copyright": "© 2026 bl0rb · MIT + Commons Clause · github.com/bl0rb/Weave",
+    "copyright": "© 2026 bl0rb · MIT + Commons Clause · github.com/bl0rb/WeaveDesktop",
     "shortDescription": "Ask Weave from the menu bar",
     "icon": [
       "icons/32x32.png",
@@ -69,7 +69,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRDMkMwNUI4OTA2NTQ0Q0EKUldUS1JHV1F1QVVzVEkxTFJ3ZXFURVVXbnBWSVBxb1pvSzJhSUJFUDNZeWFMRlJPZ2c5c28zblkK",
       "endpoints": [
-        "https://github.com/bl0rb/Weave/releases/download/desktop-latest/latest.json"
+        "https://github.com/bl0rb/WeaveDesktop/releases/download/desktop-latest/latest.json"
       ],
       "windows": {
         "installMode": "passive"
