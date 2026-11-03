@@ -6,6 +6,8 @@
 mod api;
 mod auth;
 mod deeplink;
+#[cfg(target_os = "macos")]
+mod login_item;
 mod settings;
 mod update;
 
@@ -178,7 +180,7 @@ async fn get_state(app: AppHandle, state: State<'_, AppState>) -> Result<StateVi
         hotkey: effective.hotkey,
         hotkey_managed: state.managed.hotkey.is_some(),
         default_agent: effective.default_agent,
-        autostart: app.autolaunch().is_enabled().unwrap_or(false),
+        autostart: autostart_enabled(&app),
         signed_in: session.is_some(),
         username: session.as_ref().and_then(|s| s.username.clone()),
         chat_url: session.and_then(|s| s.chat_url),
@@ -281,11 +283,25 @@ fn set_busy(app: AppHandle, state: State<'_, AppState>, busy: bool) {
     drop(app);
 }
 
+#[cfg_attr(target_os = "macos", allow(unused_variables))]
+fn autostart_enabled(app: &AppHandle) -> bool {
+    #[cfg(target_os = "macos")]
+    let enabled = login_item::is_enabled();
+    #[cfg(not(target_os = "macos"))]
+    let enabled = app.autolaunch().is_enabled().unwrap_or(false);
+    enabled
+}
+
 #[tauri::command]
 fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
-    let launcher = app.autolaunch();
-    let result = if enabled { launcher.enable() } else { launcher.disable() };
-    result.map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    login_item::set_enabled(enabled)?;
+    #[cfg(not(target_os = "macos"))]
+    {
+        let launcher = app.autolaunch();
+        let result = if enabled { launcher.enable() } else { launcher.disable() };
+        result.map_err(|e| e.to_string())?;
+    }
     notify_state(&app);
     Ok(())
 }
@@ -892,6 +908,20 @@ fn main() {
             });
 
             let handle = app.handle().clone();
+            // Read before anything else: the launch event is only current now.
+            #[cfg(target_os = "macos")]
+            let launched_at_login = login_item::launched_at_login();
+            #[cfg(not(target_os = "macos"))]
+            let launched_at_login = false;
+            // Earlier versions used a LaunchAgent (generic "exec" icon in System
+            // Settings); move it over to the login item once.
+            #[cfg(target_os = "macos")]
+            if handle.autolaunch().is_enabled().unwrap_or(false) {
+                let _ = handle.autolaunch().disable();
+                if let Err(error) = login_item::set_enabled(true) {
+                    eprintln!("login item not registered: {error}");
+                }
+            }
             if let Some(quick) = handle.get_webview_window("quick") {
                 float_over_full_screen(&quick);
             }
@@ -918,7 +948,7 @@ fn main() {
                 for url in &opened_by_link {
                     on_setup_link(&handle, url.as_str());
                 }
-            } else if !std::env::args().any(|arg| arg == AUTOSTART_ARG) {
+            } else if !launched_at_login && !std::env::args().any(|arg| arg == AUTOSTART_ARG) {
                 show_main(&handle);
             }
             let updater = handle.clone();
