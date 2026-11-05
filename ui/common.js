@@ -34,6 +34,7 @@ const EN = {
   'Öffnen': 'Open',
   'S. %@': 'p. %@',
   'Quellen': 'Sources',
+  'Kennzeichnung der Antwort': 'Answer flag',
   'Zusammenfassung': 'Summary',
   'Bereichs-Übersicht': 'Space overview',
   'Abgebrochen.': 'Stopped.',
