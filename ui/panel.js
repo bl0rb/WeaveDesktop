@@ -8,7 +8,7 @@ let collections = [];
 let mode = 'ask';
 let agent = localStorage.getItem('agent') ?? '';
 let collection = '';
-/** Ask mode: [{ role: 'user', text } | { role: 'answer', text, status, sources, options, error, done }] */
+/** Ask mode: [{ role: 'user', text } | { role: 'answer', text, status, sources, notices, options, error, done }] */
 let messages = [];
 let conversationId = null;
 let streaming = false;
@@ -81,7 +81,7 @@ async function submit(text) {
   messages.push({ role: 'user', text, fresh: true });
   pinQuestion = true;
   lastActive = Date.now();
-  const answer = { role: 'answer', text: '', status: t('Weave denkt nach …'), sources: [], options: [], fresh: true };
+  const answer = { role: 'answer', text: '', status: t('Weave denkt nach …'), sources: [], notices: [], options: [], fresh: true };
   messages.push(answer);
   startBusy();
   streaming = true;
@@ -96,7 +96,7 @@ async function submit(text) {
       case 'trace': answer.options = event.trace?.clarification?.options ?? []; break;
       case 'status': answer.status = event.message; break;
       case 'delta': answer.text += event.text ?? ''; answer.status = null; break;
-      case 'sources': answer.sources = event.sources ?? []; break;
+      case 'sources': answer.sources = event.sources ?? []; answer.notices = event.notices ?? []; break;
       case 'error': answer.error = event.detail ?? 'Fehler'; break;
       default: break;
     }
@@ -171,7 +171,11 @@ function renderAnswer(message) {
     const key = s.document_id + (s.page_start ?? '') + (s.memory_kind ?? '');
     return !seen.has(key) && seen.add(key);
   });
+  // The flags of the answer's knowledge spaces (weave-api's `notices`, e.g.
+  // "Nur intern – nicht an Kunden weitergeben"), shown above the answer.
+  const notices = message.notices ?? [];
   return h('div', { class: 'msg-answer' },
+    notices.length > 0 && h('div', { class: 'answer-notice', role: 'note', 'aria-label': t('Kennzeichnung der Antwort') }, notices.join(' · ')),
     message.status && h('div', { class: 'status-line' }, h('span', { class: 'shimmer-text' }, message.status)),
     message.text && text,
     message.options.length > 0 && message.done && h('div', { class: 'options' },
