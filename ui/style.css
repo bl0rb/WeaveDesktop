@@ -12,6 +12,10 @@
   --red: #c9302c;
   --orange: #b85c00;
   --orange-soft: rgb(230 130 0 / 0.15);
+  /* Knowledge-space colours: an answer mixing spaces colours its citations,
+     passages and sources by space (citations.js). */
+  --space-1: #2f6fd0; --space-2: #8a4fc7; --space-3: #c2620f;
+  --space-4: #c23b7a; --space-5: #0f8a8a; --space-6: #6f7a12;
   --button: #ffffff;
   --button-hover: #f0f0f2;
   --radius: 8px;
@@ -32,6 +36,8 @@
     --red: #ff6961;
     --orange: #ffa94d;
     --orange-soft: rgb(255 169 77 / 0.14);
+    --space-1: #5b9cf0; --space-2: #c08af0; --space-3: #f0a35b;
+    --space-4: #ef7fb0; --space-5: #4fc8c8; --space-6: #b8c25a;
     --button: #3a3a3d;
     --button-hover: #46464a;
   }
@@ -241,12 +247,31 @@ body.panel-body { height: 100vh; overflow: hidden; margin: 0; background: var(--
 .answer-text code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 3px; }
 .answer-text pre { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px; overflow-x: auto; }
 .answer-text a, .link-like { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.answer-text li > ul, .answer-text li > ol { margin: 2px 0 0; }
+.answer-text table { border-collapse: collapse; margin: 0 0 8px; font-size: 12px; display: block; max-width: 100%; overflow-x: auto; }
+.answer-text th, .answer-text td { border: 1px solid var(--border); padding: 4px 6px; text-align: left; vertical-align: top; }
+.answer-text th { background: var(--surface-2); font-weight: 600; }
+.answer-text blockquote { margin: 0 0 8px; padding: 2px 0 2px 10px; border-left: 3px solid var(--border); color: var(--muted); }
+.answer-text hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
 .status-line { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .sources { display: flex; flex-wrap: wrap; gap: 4px; }
 .source { font-size: 11px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; background: var(--surface-2); color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 button.source { min-height: 0; color: var(--accent); }
 .source-kind { font-weight: 600; color: var(--accent); margin-right: 4px; }
 .options { display: flex; flex-direction: column; gap: 4px; }
+/* Citations (citations.js): [N] badges, the passages they back, and the
+   source chips. `--space` is set only when the answer mixes knowledge spaces. */
+.cite-marker { display: inline-grid; place-items: center; min-width: 1.45em; height: 1.45em; margin: 0 .1em; padding: 0 .3em; border-radius: 999px; background: color-mix(in srgb, var(--space, var(--accent)) 14%, transparent); color: var(--space, var(--accent)); font-size: .7em; font-weight: 700; line-height: 1; vertical-align: .3em; cursor: default; }
+.cite-marker.active { background: var(--space, var(--accent)); color: var(--surface); }
+.cite-passage { border-radius: 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: background-color .15s; }
+.cite-passage[style] { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--space) 55%, transparent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.cite-passage.active { background: color-mix(in srgb, var(--space, var(--accent)) 22%, transparent); }
+.space-dot { display: inline-block; width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--space, var(--accent)); margin-right: 4px; vertical-align: middle; }
+.answer-spaces { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; color: var(--muted); }
+.source.mixed { border-left: 3px solid var(--space); }
+.source:hover, .source:focus-visible { border-color: var(--space, var(--accent)); }
+.source-ref { font-weight: 700; color: var(--space, var(--accent)); margin-right: 4px; }
+@media (prefers-reduced-motion: reduce) { .cite-passage { transition: none; } }
 .options button { justify-content: flex-start; text-align: left; }
 
 .hit { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; background: var(--surface-2); }
@@ -280,12 +305,10 @@ body.quick { margin: 0; overflow: hidden; }
 .quick-note .text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .quick-content { border-top: 1px solid var(--border); max-height: 460px; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; -webkit-user-select: text; user-select: text; cursor: auto; }
 
-/* Motion: while Weave works the logo moves in one of three ways, alternating
-   from start to start (common.js weaveLogo/nextWeaveMotion, same as the web
-   apps): 'weave' -- each weft row unweaves and shuttles back in like a loom;
-   'turn' -- a half turn; 'flip' -- a half turn around the vertical axis. The
-   mark is mirror-symmetric, so 180° looks exactly like 0° and every round
-   ends on the full mark. Skeleton hits shimmer, new content rises in. */
+/* Motion: while Weave works the logo weaves (common.js weaveLogo, same as the
+   web apps) -- each weft row unweaves and shuttles back in like a loom; the
+   mark itself never turns, flips or sways. Skeleton hits shimmer, new content
+   rises in. */
 .weave-logo { display: block; transition: transform .2s; }
 .weave-logo :is(.weave-weft, .weave-knots) > * { transform-box: fill-box; transform-origin: center; }
 .weave-logo .weave-weft > * { transform-origin: left center; }
@@ -295,22 +318,11 @@ body.quick { margin: 0; overflow: hidden; }
 .weave-logo--motion-weave:is(.weave-logo--loop, .weave-logo--finite) .weave-weft > * { animation: weave-weft 2s ease-in-out var(--weave-row-delay, 0s) infinite both; }
 .weave-logo--motion-weave:is(.weave-logo--loop, .weave-logo--finite) .weave-knots > * { animation: weave-knot 2s ease-in-out var(--weave-row-delay, 0s) infinite both; }
 .weave-logo--motion-weave.weave-logo--finite :is(.weave-weft, .weave-knots) > * { animation-iteration-count: 5; }
-.weave-logo--motion-turn:is(.weave-logo--loop, .weave-logo--finite) { animation: weave-turn 1.8s cubic-bezier(.65, 0, .35, 1) infinite both; }
-.weave-logo--motion-flip:is(.weave-logo--loop, .weave-logo--finite) { animation: weave-flip 1.8s cubic-bezier(.65, 0, .35, 1) infinite both; }
-.weave-logo--finite:is(.weave-logo--motion-turn, .weave-logo--motion-flip) { animation-iteration-count: 5; }
-.weave-logo--motion-shuttle:is(.weave-logo--loop, .weave-logo--finite) { animation: weave-sway 2s ease-in-out infinite both; }
-.weave-logo--motion-shuttle:is(.weave-logo--loop, .weave-logo--finite) .weave-weft > * { animation: weave-shuttle 2s ease-in-out var(--weave-row-delay, 0s) infinite both; }
-.weave-logo--motion-shuttle.weave-logo--finite, .weave-logo--motion-shuttle.weave-logo--finite .weave-weft > * { animation-iteration-count: 5; }
-.weave-logo .weave-weft > [data-row='1'] { --weave-shuttle-dir: -1; }
-/* After the last finite round: one soft settle instead of a hard stop. */
+/* Marks the end of the last finite round (no visible motion of its own). */
 .weave-logo.weave-logo--settle { animation: weave-settle .45s ease-out 1 both; }
 @keyframes weave-weft { 0%, 12% { transform: scaleX(1); } 42%, 58% { transform: scaleX(0); } 88%, 100% { transform: scaleX(1); } }
 @keyframes weave-knot { 0%, 12% { opacity: 1; } 30%, 70% { opacity: 0; } 90%, 100% { opacity: 1; } }
-@keyframes weave-turn { 0%, 10% { transform: rotate(0); } 45%, 55% { transform: rotate(90deg); } 90%, 100% { transform: rotate(180deg); } }
-@keyframes weave-sway { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
-@keyframes weave-shuttle { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(calc(6px * var(--weave-shuttle-dir, 1))); } }
-@keyframes weave-settle { 0% { transform: scale(1); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
-@keyframes weave-flip { 0%, 10% { transform: perspective(160px) rotateY(0); } 45%, 55% { transform: perspective(160px) rotateY(90deg); } 90%, 100% { transform: perspective(160px) rotateY(180deg); } }
+@keyframes weave-settle { 0%, 100% { transform: none; } }
 .skeleton { gap: 8px; }
 .skeleton-line { height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--border) 20%, var(--surface) 50%, var(--border) 80%); background-size: 300% 100%; animation: shimmer 1.4s linear infinite; }
 .shimmer-text { background: linear-gradient(90deg, var(--muted) 35%, var(--text) 50%, var(--muted) 65%); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 1.8s linear infinite; }

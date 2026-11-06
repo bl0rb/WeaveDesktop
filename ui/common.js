@@ -35,6 +35,8 @@ const EN = {
   'S. %@': 'p. %@',
   'Quellen': 'Sources',
   'Kennzeichnung der Antwort': 'Answer flag',
+  'Wissensräume': 'Knowledge spaces',
+  'ohne Wissensraum': 'no knowledge space',
   'Zusammenfassung': 'Summary',
   'Bereichs-Übersicht': 'Space overview',
   'Abgebrochen.': 'Stopped.',
@@ -134,37 +136,103 @@ function escapeHtml(text) {
 function inline(text) {
   return escapeHtml(text)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*\*([^*]+)\*\*|__([^_]+)__/g, (_, star, underscore) => `<strong>${star ?? underscore}</strong>`)
     .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a data-href="$2">$1</a>');
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a data-href="$2">$1</a>')
+    .replace(/&lt;(https?:\/\/[^\s&]+)&gt;/g, '<a data-href="$1">$1</a>')
+    // Models put HTML line breaks into table cells; raw HTML is otherwise shown escaped.
+    .replace(/&lt;br\s*\/?&gt;/gi, '<br>');
 }
 
-/** A small, safe Markdown subset: paragraphs, headings, lists, code, bold, italics, http(s) links. */
+const TABLE_SEPARATOR = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+const tableCells = (row) => row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+const LIST_ITEM = /^(\s*)(?:([-*+•◦▪‣])|(\d+)[.)])\s+(.*)$/;
+
+/**
+ * A safe Markdown subset for answers: paragraphs (single line breaks kept),
+ * headings, nested and numbered lists (numbering kept across interruptions),
+ * tables, block quotes, rules, code, bold, italics, http(s) links. Everything
+ * is HTML-escaped first; only the tags built here are produced.
+ */
 export function markdown(source) {
+  const lines = source.replace(/\r\n/g, '\n').split('\n');
   const out = [];
-  let list = null;
-  let code = null;
-  const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
-  for (const line of source.replace(/\r\n/g, '\n').split('\n')) {
-    if (code !== null) {
-      if (line.startsWith('```')) { out.push(`<pre>${escapeHtml(code.join('\n'))}</pre>`); code = null; }
-      else code.push(line);
+  let paragraph = [];
+  /** Open lists, innermost last: { tag, indent }. */
+  const lists = [];
+  const flushParagraph = () => {
+    if (paragraph.length) out.push(`<p>${paragraph.map(inline).join('<br>')}</p>`);
+    paragraph = [];
+  };
+  const closeLists = (indent = -1) => {
+    while (lists.length && lists.at(-1).indent > indent) out.push(`</li></${lists.pop().tag}>`);
+  };
+  const closeBlocks = () => { flushParagraph(); closeLists(); };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*(```|~~~)/.test(line)) {
+      closeBlocks();
+      const code = [];
+      while (++i < lines.length && !/^\s*(```|~~~)/.test(lines[i])) code.push(lines[i]);
+      out.push(`<pre>${escapeHtml(code.join('\n'))}</pre>`);
       continue;
     }
-    if (line.startsWith('```')) { closeList(); code = []; continue; }
-    const heading = line.match(/^(#{1,4})\s+(.*)/);
-    const bullet = line.match(/^\s*[-*•]\s+(.*)/);
-    const numbered = line.match(/^\s*\d+[.)]\s+(.*)/);
-    if (heading) { closeList(); out.push(`<h4>${inline(heading[2])}</h4>`); }
-    else if (bullet || numbered) {
-      const kind = bullet ? 'ul' : 'ol';
-      if (list !== kind) { closeList(); out.push(`<${kind}>`); list = kind; }
-      out.push(`<li>${inline((bullet ?? numbered)[1])}</li>`);
-    } else if (!line.trim()) closeList();
-    else { closeList(); out.push(`<p>${inline(line)}</p>`); }
+    if (!line.trim()) {
+      // A blank line keeps an open list open: the next item or indented line continues it.
+      flushParagraph();
+      continue;
+    }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+      closeBlocks();
+      out.push('<hr>');
+      continue;
+    }
+    const item = line.match(LIST_ITEM);
+    if (item) {
+      flushParagraph();
+      const indent = item[1].replace(/\t/g, '    ').length;
+      const tag = item[3] ? 'ol' : 'ul';
+      closeLists(indent);
+      const top = lists.at(-1);
+      if (top && top.indent === indent && top.tag !== tag) closeLists(indent - 1);
+      const current = lists.at(-1);
+      if (current && current.indent === indent) out.push('</li><li>');
+      else {
+        const start = tag === 'ol' && item[3] !== '1' ? ` start="${Number(item[3])}"` : '';
+        out.push(`<${tag}${start}><li>`);
+        lists.push({ tag, indent });
+      }
+      out.push(inline(item[4]));
+      continue;
+    }
+    // An indented line under a list item continues that item.
+    if (lists.length && /^\s+/.test(line)) {
+      out.push(`<br>${inline(line.trim())}`);
+      continue;
+    }
+    if (lists.length) closeBlocks();
+    const heading = line.match(/^(#{1,6})\s+(.*)/);
+    if (heading) {
+      flushParagraph();
+      out.push(heading[1].length <= 2 ? `<h3>${inline(heading[2])}</h3>` : `<h4>${inline(heading[2])}</h4>`);
+    } else if (/^\s*>/.test(line)) {
+      flushParagraph();
+      const quote = [];
+      for (; i < lines.length && /^\s*>/.test(lines[i]); i++) quote.push(lines[i].replace(/^\s*>\s?/, ''));
+      i--;
+      out.push(`<blockquote>${markdown(quote.join('\n'))}</blockquote>`);
+    } else if (line.includes('|') && i + 1 < lines.length && TABLE_SEPARATOR.test(lines[i + 1])) {
+      flushParagraph();
+      const head = tableCells(line);
+      const rows = [];
+      for (i += 2; i < lines.length && lines[i].includes('|') && lines[i].trim(); i++) rows.push(tableCells(lines[i]));
+      i--;
+      out.push(`<table><thead><tr>${head.map((cell) => `<th>${inline(cell)}</th>`).join('')}</tr></thead>`
+        + `<tbody>${rows.map((row) => `<tr>${head.map((_, col) => `<td>${inline(row[col] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+    } else paragraph.push(line.trim());
   }
-  if (code !== null) out.push(`<pre>${escapeHtml(code.join('\n'))}</pre>`);
-  closeList();
+  closeBlocks();
   return out.join('');
 }
 
@@ -178,29 +246,15 @@ export function wireLinks(root) {
 
 /* --- The Weave mark and its motions ----------------------------------------
    The same inline SVG as the web apps' WeaveLogo (the weft rows and knots
-   need class hooks, so a plain <img src="weave.svg"> can only turn or flip).
-   While Weave works, one of four motions runs -- 'weave' (the weft rows
-   unweave and shuttle back in), 'turn' (a half turn; the mark is symmetric,
-   so 180° looks like 0°), 'flip' (a half turn around the vertical axis) or
-   'shuttle' (the mark sways while the weft rows slide through) -- picked at
-   random, never the one that ran last, remembered across windows and
-   restarts through localStorage. Mirrors services/chat/src/lib/weave-motion.ts;
-   the canonical mark and keyframes live in packages/weave-mark. */
-export const WEAVE_MOTIONS = ['weave', 'turn', 'flip', 'shuttle'];
-const MOTION_KEY = 'weave-motion-last';
-let motionLast = null;
+   need class hooks, which a plain <img src="weave.svg"> does not offer).
+   While Weave works the mark weaves: the weft rows unweave and shuttle back
+   in. The only motion -- the mark itself never turns, flips or sways. Mirrors
+   services/chat/src/lib/weave-motion.ts; the canonical mark and keyframes
+   live in packages/weave-mark. */
+export const WEAVE_MOTIONS = ['weave'];
 
-export function nextWeaveMotion(random = Math.random) {
-  let last = motionLast;
-  try {
-    const stored = localStorage.getItem(MOTION_KEY);
-    if (WEAVE_MOTIONS.includes(stored)) last = stored;
-  } catch { /* storage blocked: the in-memory memory still prevents repeats */ }
-  const candidates = WEAVE_MOTIONS.filter((motion) => motion !== last);
-  const next = candidates[Math.min(candidates.length - 1, Math.floor(random() * candidates.length))];
-  motionLast = next;
-  try { localStorage.setItem(MOTION_KEY, next); } catch { /* ignore */ }
-  return next;
+export function nextWeaveMotion() {
+  return 'weave';
 }
 
 const WEAVE_MARK = `
@@ -212,9 +266,9 @@ const WEAVE_MARK = `
 
 /** The mark as an inline <svg class="weave-logo ...">. `motion` (one of
     WEAVE_MOTIONS) makes it move -- `mode` 'loop' until re-rendered without a
-    motion, 'finite' for five rounds that end in a soft settle; null renders
-    the static mark. `onCycle` runs on a click (the easter egg: switch to the
-    next motion); `onSettled` once a finite run has come to rest. */
+    motion, 'finite' for five rounds; null renders the static mark. `onCycle`
+    runs on a click (one more round); `onSettled` once a finite run has come
+    to rest. */
 export function weaveLogo(motion, extraClass = '', mode = 'loop', { onCycle, onSettled } = {}) {
   const holder = document.createElement('span');
   const classes = ['weave-logo', motion && `weave-logo--${mode}`, motion && `weave-logo--motion-${motion}`, extraClass].filter(Boolean).join(' ');
