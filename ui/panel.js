@@ -235,11 +235,8 @@ function renderMessage(m) {
 }
 
 /** Busy: an answer is streaming or a search is running -- the logo moves,
-    each time in one of its four motions (common.js), and the tray icon
-    weaves along (`set_busy`). The motion is picked once when work starts and
-    kept until it ends, so a full re-render mid-answer never switches it. A
-    click on the mark switches to the next motion; when idle it runs one
-    short round of it. */
+    weaving (common.js), and the tray icon weaves along (`set_busy`). A click
+    on the mark when idle runs one short round. */
 const isBusy = () => streaming || Boolean(searchView?.loading);
 let busyMotion = null;
 let idleRound = null;
@@ -262,7 +259,7 @@ const logo = () => weaveLogo(
   isBusy() ? 'loop' : 'finite',
   { onCycle: cycleMotion, onSettled: () => { idleRound = null; } },
 );
-// The empty state's mark weaves five rounds once per window, in a motion of its own.
+// The empty state's mark weaves five rounds once per window.
 const welcomeMotion = nextWeaveMotion();
 
 /** `previousScrollTop`: where the #content that a full render just replaced was scrolled to. */
