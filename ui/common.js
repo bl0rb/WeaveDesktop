@@ -35,6 +35,8 @@ const EN = {
   'S. %@': 'p. %@',
   'Quellen': 'Sources',
   'Kennzeichnung der Antwort': 'Answer flag',
+  'Wissensräume': 'Knowledge spaces',
+  'ohne Wissensraum': 'no knowledge space',
   'Zusammenfassung': 'Summary',
   'Bereichs-Übersicht': 'Space overview',
   'Abgebrochen.': 'Stopped.',

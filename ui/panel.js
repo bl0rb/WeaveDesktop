@@ -1,5 +1,6 @@
 // App window (panel.html) and quick overlay (quick.html; tray click or hotkey): ask an agent or search Weave.
 import { invoke, Channel, listen, t, h, icon, spinner, markdown, wireLinks, nextWeaveMotion, weaveLogo } from './common.js';
+import { answerSpaces, highlightCitations, markCitations, spaceStyle } from './citations.js';
 
 let state = null;
 let loginError = null;
@@ -153,34 +154,75 @@ function sourceLabel(source) {
 // overview, not a quoted passage -- marked so the two are not confused.
 const MEMORY_KIND = { document: 'Zusammenfassung', collection: 'Bereichs-Übersicht' };
 
-function sourceChip(source) {
+/** A source chip; `refs` are the `[N]` it backs -- hovering it marks those passages in `text`. */
+function sourceChip(source, refs, color, text) {
   const label = sourceLabel(source);
   const kind = MEMORY_KIND[source.memory_kind];
   const title = kind ? `${t(kind)}: ${label}` : label;
-  const content = kind ? [h('span', { class: 'source-kind' }, t(kind)), label] : [label];
+  const content = [
+    refs.length > 0 && h('span', { class: 'source-ref' }, refs.join(',')),
+    kind && h('span', { class: 'source-kind' }, t(kind)),
+    label,
+  ];
+  const on = () => highlightCitations(text, refs);
+  const off = () => highlightCitations(text, []);
+  const props = {
+    class: color ? 'source mixed' : 'source', title, style: spaceStyle(color),
+    onmouseenter: on, onmouseleave: off, onfocus: on, onblur: off,
+  };
   return source.source_url
-    ? h('button', { class: 'source', title, onclick: () => invoke('open_url', { url: source.source_url }) }, ...content)
-    : h('span', { class: 'source', title }, ...content);
+    ? h('button', { ...props, onclick: () => invoke('open_url', { url: source.source_url }) }, ...content)
+    : h('span', { ...props, tabindex: refs.length > 0 ? '0' : null }, ...content);
 }
+
+const spaceName = (collection) => collection
+  ? (collections.find((c) => c.slug === collection)?.name ?? collection)
+  : t('ohne Wissensraum');
 
 function renderAnswer(message) {
   const text = h('div', { class: 'answer-text' });
   text.innerHTML = markdown(message.text);
-  const seen = new Set();
-  const sources = message.sources.filter((s) => {
-    const key = s.document_id + (s.page_start ?? '') + (s.memory_kind ?? '');
-    return !seen.has(key) && seen.add(key);
+  // The answer's knowledge spaces, in order of first appearance: an answer
+  // mixing spaces colours its [N] citations, their passages and its sources
+  // by space. Only sources with an explicit `ref` resolve a marker (an agent
+  // turn numbers facts, not sources).
+  const spaces = answerSpaces(message.sources);
+  const mixed = spaces.length > 1;
+  const colorOf = (source) => (mixed ? spaces.find((s) => s.collection === (source.collection ?? null))?.color : undefined);
+  const byRef = new Map(message.sources.filter((s) => typeof s.ref === 'number').map((s) => [s.ref, s]));
+  if (message.done) markCitations(text, new Set(byRef.keys()), (ref) => colorOf(byRef.get(ref)));
+  text.addEventListener('mouseover', (event) => {
+    const badge = event.target.closest?.('.cite-marker');
+    if (badge) highlightCitations(text, [badge.dataset.ref]);
   });
-  // The flags of the answer's knowledge spaces (weave-api's `notices`, e.g.
-  // "Nur intern – nicht an Kunden weitergeben"), shown above the answer.
-  const notices = message.notices ?? [];
+  text.addEventListener('mouseout', (event) => {
+    if (event.target.closest?.('.cite-marker')) highlightCitations(text, []);
+  });
+  // One chip per document page; it backs every [N] its chunks are cited by.
+  const chips = new Map();
+  for (const s of message.sources) {
+    const key = s.document_id + (s.page_start ?? '') + (s.memory_kind ?? '');
+    const chip = chips.get(key) ?? chips.set(key, { source: s, refs: [] }).get(key);
+    if (typeof s.ref === 'number' && !chip.refs.includes(s.ref)) chip.refs.push(s.ref);
+  }
+  // Below the answer: which colour is which space (mixed answers), then the
+  // flags of its knowledge spaces (e.g. "Nur intern – nicht an Kunden
+  // weitergeben"), each with its space's colour when mixed.
+  const notices = spaces.some((s) => s.notice)
+    ? [...new Set(spaces.map((s) => s.notice).filter(Boolean))].map((notice) => [notice, spaces.filter((s) => s.notice === notice)])
+    : (message.notices ?? []).map((notice) => [notice, []]);
+  const dot = (space) => h('span', { class: 'space-dot', style: spaceStyle(space.color), 'aria-hidden': 'true' });
   return h('div', { class: 'msg-answer' },
-    notices.length > 0 && h('div', { class: 'answer-notice', role: 'note', 'aria-label': t('Kennzeichnung der Antwort') }, notices.join(' · ')),
     message.status && h('div', { class: 'status-line' }, h('span', { class: 'shimmer-text' }, message.status)),
     message.text && text,
     message.options.length > 0 && message.done && h('div', { class: 'options' },
       message.options.map((option) => h('button', { onclick: () => submit(option.message) }, option.label))),
-    sources.length > 0 && h('div', { class: 'sources', 'aria-label': t('Quellen') }, sources.map(sourceChip)),
+    message.done && mixed && h('div', { class: 'answer-spaces', 'aria-label': t('Wissensräume') },
+      spaces.map((space) => h('span', { style: spaceStyle(space.color) }, dot(space), spaceName(space.collection)))),
+    message.done && notices.length > 0 && h('div', { class: 'answer-notice', role: 'note', 'aria-label': t('Kennzeichnung der Antwort') },
+      notices.map(([notice, noticeSpaces], index) => [index > 0 && ' · ', mixed && noticeSpaces.map(dot), notice])),
+    chips.size > 0 && h('div', { class: 'sources', 'aria-label': t('Quellen') },
+      [...chips.values()].map(({ source, refs }) => sourceChip(source, refs, colorOf(source), text))),
     message.error && h('div', { class: 'error-text' }, message.error),
   );
 }

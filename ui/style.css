@@ -12,6 +12,10 @@
   --red: #c9302c;
   --orange: #b85c00;
   --orange-soft: rgb(230 130 0 / 0.15);
+  /* Knowledge-space colours: an answer mixing spaces colours its citations,
+     passages and sources by space (citations.js). */
+  --space-1: #2f6fd0; --space-2: #8a4fc7; --space-3: #c2620f;
+  --space-4: #c23b7a; --space-5: #0f8a8a; --space-6: #6f7a12;
   --button: #ffffff;
   --button-hover: #f0f0f2;
   --radius: 8px;
@@ -32,6 +36,8 @@
     --red: #ff6961;
     --orange: #ffa94d;
     --orange-soft: rgb(255 169 77 / 0.14);
+    --space-1: #5b9cf0; --space-2: #c08af0; --space-3: #f0a35b;
+    --space-4: #ef7fb0; --space-5: #4fc8c8; --space-6: #b8c25a;
     --button: #3a3a3d;
     --button-hover: #46464a;
   }
@@ -247,6 +253,19 @@ body.panel-body { height: 100vh; overflow: hidden; margin: 0; background: var(--
 button.source { min-height: 0; color: var(--accent); }
 .source-kind { font-weight: 600; color: var(--accent); margin-right: 4px; }
 .options { display: flex; flex-direction: column; gap: 4px; }
+/* Citations (citations.js): [N] badges, the passages they back, and the
+   source chips. `--space` is set only when the answer mixes knowledge spaces. */
+.cite-marker { display: inline-grid; place-items: center; min-width: 1.45em; height: 1.45em; margin: 0 .1em; padding: 0 .3em; border-radius: 999px; background: color-mix(in srgb, var(--space, var(--accent)) 14%, transparent); color: var(--space, var(--accent)); font-size: .7em; font-weight: 700; line-height: 1; vertical-align: .3em; cursor: default; }
+.cite-marker.active { background: var(--space, var(--accent)); color: var(--surface); }
+.cite-passage { border-radius: 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: background-color .15s; }
+.cite-passage[style] { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--space) 55%, transparent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.cite-passage.active { background: color-mix(in srgb, var(--space, var(--accent)) 22%, transparent); }
+.space-dot { display: inline-block; width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--space, var(--accent)); margin-right: 4px; vertical-align: middle; }
+.answer-spaces { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; color: var(--muted); }
+.source.mixed { border-left: 3px solid var(--space); }
+.source:hover, .source:focus-visible { border-color: var(--space, var(--accent)); }
+.source-ref { font-weight: 700; color: var(--space, var(--accent)); margin-right: 4px; }
+@media (prefers-reduced-motion: reduce) { .cite-passage { transition: none; } }
 .options button { justify-content: flex-start; text-align: left; }
 
 .hit { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; background: var(--surface-2); }
