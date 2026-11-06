@@ -247,6 +247,12 @@ body.panel-body { height: 100vh; overflow: hidden; margin: 0; background: var(--
 .answer-text code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 3px; }
 .answer-text pre { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px; overflow-x: auto; }
 .answer-text a, .link-like { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.answer-text li > ul, .answer-text li > ol { margin: 2px 0 0; }
+.answer-text table { border-collapse: collapse; margin: 0 0 8px; font-size: 12px; display: block; max-width: 100%; overflow-x: auto; }
+.answer-text th, .answer-text td { border: 1px solid var(--border); padding: 4px 6px; text-align: left; vertical-align: top; }
+.answer-text th { background: var(--surface-2); font-weight: 600; }
+.answer-text blockquote { margin: 0 0 8px; padding: 2px 0 2px 10px; border-left: 3px solid var(--border); color: var(--muted); }
+.answer-text hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
 .status-line { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .sources { display: flex; flex-wrap: wrap; gap: 4px; }
 .source { font-size: 11px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; background: var(--surface-2); color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -65,7 +65,7 @@ export function markCitations(root, refs, colorOf = () => undefined) {
     badge.textContent = String(ref);
     return badge;
   };
-  for (const block of root.querySelectorAll('p, li, h4')) {
+  for (const block of root.querySelectorAll('p, li, h3, h4, td, th')) {
     const out = [];
     let run = [];
     let lastPassage = null;
